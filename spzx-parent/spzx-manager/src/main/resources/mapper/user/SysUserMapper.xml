@@ -7,9 +7,6 @@
         id,username userName ,password,name,phone,avatar,description,status,create_time,update_time,is_deleted
     </sql>
 
-    <select id="selectByUserName" resultType="com.tuixiaofei.spzx.model.entity.system.SysUser">
-        select <include refid="columns" /> from sys_user where username = #{userName} and is_deleted = 0
-    </select>
     <select id="selectUserInfoByUserName" resultType="com.tuixiaofei.spzx.model.entity.system.SysUser">
         select <include refid="columns" /> from sys_user where username = #{userName} and is_deleted = 0
     </select>

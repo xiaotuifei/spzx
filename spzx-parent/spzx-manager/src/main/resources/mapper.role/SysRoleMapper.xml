@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tuixiaofei.spzx.manager.mapper.SysRoleMapper">
-    <resultMap id="sysRoleMap" type="com.tuixiaofei.spzx.model.entity.system.SysRole" autoMapping="true"></resultMap>
+    <resultMap id="sysRoleMap" type="com.tuixiaofei.spzx.model.entity.system.SysRole" autoMapping="true"/>
 
     <!-- 用于select查询公用抽取的列 -->
     <sql id="columns">

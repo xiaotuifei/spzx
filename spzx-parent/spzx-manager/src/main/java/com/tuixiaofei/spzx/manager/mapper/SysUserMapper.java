@@ -7,7 +7,5 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface SysUserMapper {
 
-    SysUser selectByUserName(@Param("userName") String username);
-
     SysUser selectUserInfoByUserName(@Param("userName") String userName);
 }

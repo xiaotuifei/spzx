@@ -3,6 +3,8 @@ package com.tuixiaofei.spzx.manager.service.impl;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import com.alibaba.fastjson.JSON;
+import com.github.pagehelper.util.StringUtil;
+import com.tuixiaofei.spzx.common.exception.TuixiaofeiException;
 import com.tuixiaofei.spzx.manager.mapper.SysUserMapper;
 import com.tuixiaofei.spzx.manager.service.SysUserService;
 import com.tuixiaofei.spzx.model.dto.system.LoginDto;
@@ -11,9 +13,11 @@ import com.tuixiaofei.spzx.model.vo.common.Result;
 import com.tuixiaofei.spzx.model.vo.common.ResultCodeEnum;
 import com.tuixiaofei.spzx.model.vo.system.LoginVo;
 import jakarta.annotation.Resource;
+import org.bouncycastle.jcajce.provider.digest.MD5;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
+import org.springframework.util.StringUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
@@ -21,6 +25,8 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 public class SysUserServiceImpl implements SysUserService {
+
+    private final String USER_LOGIN = "user:login";
     @Resource
     private SysUserMapper sysUserMapper;
 
@@ -29,28 +35,58 @@ public class SysUserServiceImpl implements SysUserService {
 
     @Override
     public LoginVo login(LoginDto loginDto) {
-        String userName = loginDto.getUserName();
-        SysUser sysUser = sysUserMapper.selectUserInfoByUserName(userName);
 
-        if (null == sysUser) {
-            throw new RuntimeException("用户名或密码错误");
+        // 获取输入的验证码和存储到redis的key名称
+        String captcha = loginDto.getCaptcha();
+        String key = loginDto.getCodeKey();
+
+        // 根据获取的redis里面key，查询redis里面存储验证码
+        String redisCaptcha = redisTemplate.opsForValue().get("user:validate" + key);
+
+        // 比较输入的验证码和redis存储验证码是否一致
+        // 如果不一致，提示用户，校验失败
+        if (StrUtil.isEmpty(redisCaptcha) || !StrUtil.equalsIgnoreCase(captcha, redisCaptcha)) {
+            throw new TuixiaofeiException(ResultCodeEnum.VALIDATECODE_ERROR);
         }
 
+        // 如果一致，删除redis里面验证码
+        redisTemplate.delete("user:validate" + key);
+
+
+        String username = loginDto.getUserName();
+        SysUser sysUser = sysUserMapper.selectUserInfoByUserName(username);
+        if (null == sysUser) {
+            throw new TuixiaofeiException(ResultCodeEnum.LOGIN_ERROR);
+        }
         String database_password = sysUser.getPassword();
         String input_password = DigestUtils.md5DigestAsHex(loginDto.getPassword().getBytes());
-        if (!StrUtil.equals(database_password, input_password)) {
-            throw new RuntimeException("用户名或密码错误");
+
+        if (!database_password.equals(input_password)) {
+            throw new TuixiaofeiException(ResultCodeEnum.LOGIN_ERROR);
         }
+
         String token = UUID.randomUUID().toString().replaceAll("_", "");
-        redisTemplate.opsForValue().set("user:login"+token,
-                sysUser.toString(),
+
+        redisTemplate.opsForValue().set(USER_LOGIN + token,
+                JSON.toJSONString(sysUser),
                 7,
-                TimeUnit.DAYS);
+                TimeUnit.HOURS);
 
         LoginVo loginVo = new LoginVo();
         loginVo.setToken(token);
         return loginVo;
 
+    }
+
+    @Override
+    public SysUser getUserInfo(String token) {
+        String userJson = redisTemplate.opsForValue().get(USER_LOGIN + token);
+        return JSON.parseObject(userJson, SysUser.class);
+    }
+
+    @Override
+    public void logout(String token) {
+        redisTemplate.delete(USER_LOGIN + token);
     }
 }
 
